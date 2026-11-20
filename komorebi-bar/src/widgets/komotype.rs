@@ -9,7 +9,9 @@ use crate::widgets::widget::BarWidget;
 use eframe::egui::Align;
 use eframe::egui::Button;
 use eframe::egui::CentralPanel;
+use eframe::egui::Align2;
 use eframe::egui::Color32;
+use eframe::egui::FontId;
 use eframe::egui::Context;
 use eframe::egui::CornerRadius;
 use eframe::egui::Frame;
@@ -34,8 +36,10 @@ use komotype_protocol::ipc::Command as DaemonCommand;
 use komotype_protocol::ipc::Game;
 use komotype_protocol::ipc::GameEventKind;
 use komotype_protocol::ipc::IPC_VERSION;
+use komotype_protocol::ipc::KeyStats;
 use komotype_protocol::ipc::PIPE_NAME;
 use komotype_protocol::ipc::Quest;
+use komotype_protocol::ipc::Rarity;
 use komotype_protocol::ipc::Status;
 use komotype_protocol::ipc::Transport;
 use parking_lot::Mutex;
@@ -87,6 +91,10 @@ pub struct KomotypeConfig {
     pub show_battery: Option<bool>,
     /// Names for keyboard layers, by index. Layers without a name are shown as "L<n>".
     pub layer_names: Option<Vec<String>>,
+    /// Keys per row for the heatmap, in key position order (default: rows of 12)
+    pub heatmap_rows: Option<Vec<usize>>,
+    /// Labels for the heatmap, by key position
+    pub key_labels: Option<Vec<String>>,
     /// Start komotyped automatically if it is not running
     #[cfg_attr(feature = "schemars", schemars(extend("default" = true)))]
     pub autostart: Option<bool>,
@@ -239,6 +247,24 @@ fn battery_icon(level: u8) -> &'static str {
     }
 }
 
+fn rarity_color(r: Rarity) -> Color32 {
+    match r {
+        Rarity::Bronze => Color32::from_rgb(0xCD, 0x7F, 0x32),
+        Rarity::Silver => Color32::from_rgb(0xC0, 0xC0, 0xC8),
+        Rarity::Gold => Color32::from_rgb(0xFF, 0xC8, 0x2E),
+        Rarity::Legendary => Color32::from_rgb(0xB2, 0x66, 0xFF),
+    }
+}
+
+fn rarity_name(r: Rarity) -> &'static str {
+    match r {
+        Rarity::Bronze => "bronze",
+        Rarity::Silver => "silver",
+        Rarity::Gold => "gold",
+        Rarity::Legendary => "legendary",
+    }
+}
+
 fn level_fraction(g: &Game) -> f32 {
     if g.level_xp_needed == 0 {
         1.0
@@ -314,6 +340,9 @@ impl Komotype {
             GameEventKind::NewBestWpm { wpm } => format!("{} New best: {wpm:.0} WPM", icon::LIGHTNING),
             GameEventKind::SeasonStarted { season } => format!("{} Season {season} started", icon::LEAF),
             GameEventKind::Prestige { prestige } => format!("{} Prestige {prestige}!", icon::STAR),
+            GameEventKind::AchievementUnlocked { name, xp, .. } => {
+                format!("{} {name} +{xp} XP", icon::MEDAL)
+            }
         }
     }
 
@@ -507,12 +536,7 @@ impl Komotype {
             Tab::Today => self.today_tab(ui, s),
             Tab::Progress => self.progress_tab(ui, s),
             Tab::Keyboard => self.keyboard_tab(ui, s),
-            Tab::Achievements => {
-                ui.label(RichText::new("0 / ?? discovered").strong());
-                ui.add_space(6.0);
-                ui.label("Achievements are not built yet.");
-                ui.label(RichText::new("They arrive in the next update.").weak());
-            }
+            Tab::Achievements => Self::achievements_tab(ui, s),
         });
     }
 
@@ -695,6 +719,156 @@ impl Komotype {
                 });
                 ui.end_row();
             });
+        if let Some(stats) = &s.key_stats {
+            ui.add_space(10.0);
+            ui.label(RichText::new("Today's heatmap").strong());
+            self.heatmap(ui, stats);
+            self.hold_tap_table(ui, stats);
+        }
+    }
+
+    fn key_label(&self, position: usize) -> String {
+        self.config
+            .key_labels
+            .as_ref()
+            .and_then(|l| l.get(position))
+            .cloned()
+            .unwrap_or_else(|| position.to_string())
+    }
+
+    fn heatmap(&self, ui: &mut Ui, stats: &KeyStats) {
+        const KEY: f32 = 24.0;
+        const GAP: f32 = 3.0;
+        let total = stats.presses.len();
+        let rows = self
+            .config
+            .heatmap_rows
+            .clone()
+            .unwrap_or_else(|| vec![12; total.div_ceil(12).max(1)]);
+        let max = stats.presses.iter().copied().max().unwrap_or(0).max(1) as f32;
+        let visuals = ui.style().visuals.clone();
+        let accent = visuals.selection.stroke.color;
+        let cold = visuals.extreme_bg_color;
+        let widest = rows.iter().copied().max().unwrap_or(0) as f32;
+        let mut position = 0;
+        for row in rows {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = GAP;
+                // Center shorter rows under the widest one.
+                ui.add_space((widest - row as f32) * (KEY + GAP) / 2.0);
+                for _ in 0..row {
+                    let presses = stats.presses.get(position).copied().unwrap_or(0);
+                    let heat = (presses as f32 / max).powf(0.6);
+                    let (rect, response) =
+                        ui.allocate_exact_size(Vec2::splat(KEY), Sense::hover());
+                    let fill = cold.lerp_to_gamma(accent, heat);
+                    ui.painter().rect_filled(rect, CornerRadius::same(3), fill);
+                    let text_color = if heat > 0.55 {
+                        visuals.extreme_bg_color
+                    } else {
+                        visuals.text_color()
+                    };
+                    let label = self.key_label(position);
+                    ui.painter().text(
+                        rect.center(),
+                        Align2::CENTER_CENTER,
+                        &label,
+                        FontId::proportional(9.0),
+                        text_color,
+                    );
+                    let taps = stats.taps.get(position).copied().unwrap_or(0);
+                    let holds = stats.holds.get(position).copied().unwrap_or(0);
+                    response.on_hover_text(if taps + holds > 0 {
+                        format!("{label}: {presses} presses · {taps} taps · {holds} holds")
+                    } else {
+                        format!("{label}: {presses} presses")
+                    });
+                    position += 1;
+                }
+            });
+            ui.add_space(GAP);
+        }
+    }
+
+    fn hold_tap_table(&self, ui: &mut Ui, stats: &KeyStats) {
+        let keys: Vec<usize> = (0..stats.taps.len().max(stats.holds.len()))
+            .filter(|&p| {
+                stats.taps.get(p).copied().unwrap_or(0) + stats.holds.get(p).copied().unwrap_or(0) > 0
+            })
+            .collect();
+        if keys.is_empty() {
+            return;
+        }
+        ui.add_space(8.0);
+        ui.label(RichText::new("Hold-tap keys today").strong());
+        Grid::new("komotype-holdtap")
+            .num_columns(4)
+            .spacing([18.0, 2.0])
+            .show(ui, |ui| {
+                ui.label(RichText::new("Key").weak());
+                ui.label(RichText::new("Taps").weak());
+                ui.label(RichText::new("Holds").weak());
+                ui.label(RichText::new("Hold %").weak());
+                ui.end_row();
+                for p in keys {
+                    let taps = stats.taps.get(p).copied().unwrap_or(0);
+                    let holds = stats.holds.get(p).copied().unwrap_or(0);
+                    ui.label(self.key_label(p));
+                    ui.label(taps.to_string());
+                    ui.label(holds.to_string());
+                    ui.label(format!("{:.0}%", 100.0 * holds as f32 / (taps + holds) as f32));
+                    ui.end_row();
+                }
+            });
+    }
+
+    fn achievements_tab(ui: &mut Ui, s: &Status) {
+        let Some(a) = &s.achievements else {
+            ui.label("Choose a main keyboard first: `komotyped pick`.");
+            return;
+        };
+        ui.label(RichText::new(format!("{} / ?? discovered", a.unlocked.len())).strong());
+        ui.add_space(6.0);
+        for r in [Rarity::Bronze, Rarity::Silver, Rarity::Gold, Rarity::Legendary] {
+            let locked = a.locked.iter().filter(|&&l| l == r).count();
+            if locked > 0 {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(egui_phosphor::regular::LOCK).color(rarity_color(r)));
+                    ui.label(RichText::new(format!("??? ×{locked}")).weak());
+                    ui.label(RichText::new(rarity_name(r)).color(rarity_color(r)).small());
+                });
+            }
+        }
+        if a.unlocked.is_empty() {
+            ui.add_space(6.0);
+            ui.label(RichText::new("Nothing yet. Keep typing.").weak());
+            return;
+        }
+        ui.separator();
+        for u in &a.unlocked {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(egui_phosphor::regular::MEDAL)
+                        .color(rarity_color(u.rarity))
+                        .size(18.0),
+                );
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(&u.name).strong());
+                        if u.secret {
+                            ui.label(RichText::new("secret").small().color(rarity_color(u.rarity)));
+                        }
+                    });
+                    ui.label(RichText::new(&u.description).weak());
+                    ui.label(
+                        RichText::new(format!("+{} XP · {}", u.xp, ago_text(u.at_ms)))
+                            .weak()
+                            .small(),
+                    );
+                });
+            });
+            ui.add_space(4.0);
+        }
     }
 
     fn show_popup(&mut self, ctx: &Context, status: Option<&Status>, error: Option<&str>) {
