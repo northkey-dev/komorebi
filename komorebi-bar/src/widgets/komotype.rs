@@ -108,6 +108,7 @@ enum Tab {
     Progress,
     Keyboard,
     Achievements,
+    Settings,
 }
 
 #[derive(Default)]
@@ -528,6 +529,11 @@ impl Komotype {
             ui.selectable_value(&mut self.tab, Tab::Progress, "Progress");
             ui.selectable_value(&mut self.tab, Tab::Keyboard, "Keyboard");
             ui.selectable_value(&mut self.tab, Tab::Achievements, "Achievements");
+            ui.selectable_value(
+                &mut self.tab,
+                Tab::Settings,
+                egui_phosphor::regular::GEAR.to_string(),
+            );
         });
         ui.separator();
         ui.add_space(4.0);
@@ -537,6 +543,7 @@ impl Komotype {
             Tab::Progress => self.progress_tab(ui, s),
             Tab::Keyboard => self.keyboard_tab(ui, s),
             Tab::Achievements => Self::achievements_tab(ui, s),
+            Tab::Settings => Self::settings_tab(ui, s),
         });
     }
 
@@ -817,6 +824,66 @@ impl Komotype {
                     ui.label(taps.to_string());
                     ui.label(holds.to_string());
                     ui.label(format!("{:.0}%", 100.0 * holds as f32 / (taps + holds) as f32));
+                    ui.end_row();
+                }
+            });
+    }
+
+    fn settings_tab(ui: &mut Ui, s: &Status) {
+        ui.label(RichText::new("Main keyboard").strong());
+        ui.label(
+            RichText::new("Only typing on the main keyboard counts for XP, quests and achievements.")
+                .weak(),
+        );
+        ui.add_space(6.0);
+        if s.picking {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(format!(
+                        "{} Press any key on the keyboard you want to use…",
+                        egui_phosphor::regular::HAND_POINTING
+                    ))
+                    .strong(),
+                );
+                if ui.button("Cancel").clicked() {
+                    send_command(DaemonCommand::CancelPick);
+                }
+            });
+        } else if ui
+            .button(format!(
+                "{} Choose by pressing a key",
+                egui_phosphor::regular::KEYBOARD
+            ))
+            .clicked()
+        {
+            send_command(DaemonCommand::PickNext);
+        }
+        ui.add_space(8.0);
+        Grid::new("komotype-keyboards")
+            .num_columns(3)
+            .spacing([16.0, 6.0])
+            .show(ui, |ui| {
+                for k in &s.keyboards {
+                    let transport = match k.transport {
+                        Transport::Usb => "USB",
+                        Transport::Bluetooth => "Bluetooth",
+                        Transport::Other => "other",
+                    };
+                    ui.label(RichText::new(&k.name).strong());
+                    ui.label(RichText::new(transport).weak());
+                    if k.main {
+                        ui.label(format!("{} main", egui_phosphor::regular::CHECK_CIRCLE));
+                    } else if let (Some(vid), Some(pid)) = (k.vid, k.pid) {
+                        if ui.button("Use as main").clicked() {
+                            send_command(DaemonCommand::SetMain {
+                                vid,
+                                pid,
+                                product: Some(k.name.clone()),
+                            });
+                        }
+                    } else {
+                        ui.label(RichText::new("cannot be identified").weak().small());
+                    }
                     ui.end_row();
                 }
             });
