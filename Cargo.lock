@@ -3360,7 +3360,7 @@ version = "0.1.41"
 [[package]]
 name = "komotype-protocol"
 version = "0.1.0"
-source = "git+https://github.com/northkey-dev/komotype?rev=9f847552a4ae0a7e017960bd64430ef78141ded7#9f847552a4ae0a7e017960bd64430ef78141ded7"
+source = "git+https://github.com/northkey-dev/komotype?rev=d488a3f2f5e9039b53a1068649dcaa27764d60bb#d488a3f2f5e9039b53a1068649dcaa27764d60bb"
 dependencies = [
  "serde",
 ]

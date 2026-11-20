@@ -725,12 +725,28 @@ impl Komotype {
                     Transport::Other => "other",
                 });
                 ui.end_row();
+                ui.label("Firmware");
+                ui.label(format!("komotype v{}", fw.report.module_version));
+                ui.end_row();
             });
-        if let Some(stats) = &s.key_stats {
-            ui.add_space(10.0);
-            ui.label(RichText::new("Today's heatmap").strong());
-            self.heatmap(ui, stats);
-            self.hold_tap_table(ui, stats);
+        ui.add_space(10.0);
+        ui.label(RichText::new("Today's heatmap").strong());
+        match &s.key_stats {
+            Some(stats) => {
+                self.heatmap(ui, stats);
+                self.hold_tap_table(ui, stats);
+            }
+            None if fw.report.module_version < 2 => {
+                ui.label(
+                    RichText::new(
+                        "Needs komotype firmware v2 or newer on the keyboard (central half).",
+                    )
+                    .weak(),
+                );
+            }
+            None => {
+                ui.label(RichText::new("Appears as soon as you type.").weak());
+            }
         }
     }
 
