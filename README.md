@@ -9,7 +9,7 @@
 > Fork additions:
 > - **komorebi-bar:** `Komotype` widget (live WPM, layer, level, quests, achievements, key heatmap).
 > - **komorebi:** `"remember_layouts": true` in komorebi.json keeps layouts you change at runtime across
->   restarts (stored in `%LOCALAPPDATA%\komorebiemembered_layouts.json`, delete it to reset;
+>   restarts (stored in `%LOCALAPPDATA%\komorebi\remembered_layouts.json`, delete it to reset;
 >   komorebi.json is never modified). Needs this fork's `komorebi.exe`
 >   (`cargo build --release -p komorebi`).
 
