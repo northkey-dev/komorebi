@@ -955,8 +955,14 @@ impl WindowManager {
                 focused_workspace.layout_options = Some(options);
                 self.update_focused_workspace(false, false)?;
             }
-            SocketMessage::ChangeLayout(layout) => self.change_workspace_layout_default(layout)?,
-            SocketMessage::CycleLayout(direction) => self.cycle_layout(direction)?,
+            SocketMessage::ChangeLayout(layout) => {
+                self.change_workspace_layout_default(layout)?;
+                crate::remembered_layouts::save(self);
+            }
+            SocketMessage::CycleLayout(direction) => {
+                self.cycle_layout(direction)?;
+                crate::remembered_layouts::save(self);
+            }
             SocketMessage::LayoutRatios(ref columns, ref rows) => {
                 use crate::core::validate_ratios;
 
@@ -991,6 +997,7 @@ impl WindowManager {
             }
             SocketMessage::WorkspaceLayout(monitor_idx, workspace_idx, layout) => {
                 self.set_workspace_layout_default(monitor_idx, workspace_idx, layout)?;
+                crate::remembered_layouts::save(self);
             }
             SocketMessage::WorkspaceLayoutRule(
                 monitor_idx,
@@ -1040,6 +1047,7 @@ impl WindowManager {
                     self.monitor_workspace_index_by_name(workspace)
                 {
                     self.set_workspace_layout_default(monitor_idx, workspace_idx, layout)?;
+                    crate::remembered_layouts::save(self);
                 }
             }
             SocketMessage::NamedWorkspaceLayoutRule(ref workspace, at_container_count, layout) => {

@@ -5,6 +5,13 @@
 > This fork is not affiliated with or endorsed by komorebi. It is shared as source only under the
 > [Komorebi License](LICENSE.md) (no binaries are distributed); build it yourself with
 > `cargo build --release -p komorebi-bar`. Changes live on the `komotype` branch.
+>
+> Fork additions:
+> - **komorebi-bar:** `Komotype` widget (live WPM, layer, level, quests, achievements, key heatmap).
+> - **komorebi:** `"remember_layouts": true` in komorebi.json keeps layouts you change at runtime across
+>   restarts (stored in `%LOCALAPPDATA%\komorebiemembered_layouts.json`, delete it to reset;
+>   komorebi.json is never modified). Needs this fork's `komorebi.exe`
+>   (`cargo build --release -p komorebi`).
 
 # komorebi
 

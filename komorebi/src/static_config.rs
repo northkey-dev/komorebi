@@ -600,6 +600,10 @@ pub struct StaticConfig {
     /// If a workspace defines either setting, all global defaults for that layout are completely replaced.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layout_defaults: Option<HashMap<DefaultLayout, LayoutDefaultEntry>>,
+    /// Remember layouts changed at runtime and restore them on the next start (komotype fork).
+    /// Stored in %LOCALAPPDATA%\komorebi\remembered_layouts.json; delete it to forget them.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remember_layouts: Option<bool>,
     /// Monitor and workspace configurations
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitors: Option<Vec<MonitorConfig>>,
@@ -917,6 +921,9 @@ impl From<&WindowManager> for StaticConfig {
                     Some(guard.clone())
                 }
             },
+            remember_layouts: Some(
+                crate::remembered_layouts::ENABLED.load(std::sync::atomic::Ordering::SeqCst),
+            ),
             monitors: Option::from(monitors),
             window_hiding_behaviour: Option::from(*HIDING_BEHAVIOUR.lock()),
             global_work_area_offset: value.work_area_offset,
@@ -957,6 +964,10 @@ impl From<&WindowManager> for StaticConfig {
 impl StaticConfig {
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     fn apply_globals(&mut self) -> eyre::Result<()> {
+        crate::remembered_layouts::ENABLED.store(
+            self.remember_layouts.unwrap_or(false),
+            Ordering::SeqCst,
+        );
         *FLOATING_WINDOW_TOGGLE_ASPECT_RATIO.lock() = self
             .floating_window_aspect_ratio
             .unwrap_or(AspectRatio::Predefined(PredefinedAspectRatio::Standard));
@@ -1542,6 +1553,7 @@ impl StaticConfig {
         }
 
         wm.enforce_workspace_rules()?;
+        crate::remembered_layouts::apply(&mut wm);
 
         if value.border == Some(true) {
             border_manager::BORDER_ENABLED.store(true, Ordering::SeqCst);
@@ -1710,6 +1722,7 @@ impl StaticConfig {
         }
 
         wm.enforce_workspace_rules()?;
+        crate::remembered_layouts::apply(wm);
 
         if let Some(border_enabled) = value.border {
             border_manager::BORDER_ENABLED.store(border_enabled, Ordering::SeqCst);
