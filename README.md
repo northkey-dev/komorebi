@@ -1,3 +1,11 @@
+> **This is a fork of [komorebi](https://github.com/LGUG2Z/komorebi) by [LGUG2Z](https://github.com/LGUG2Z)**,
+> adding a `Komotype` widget to komorebi-bar for [komotype](https://github.com/northkey-dev/komotype),
+> a gamified typing tracker. All credit for komorebi goes to its author; please
+> [sponsor LGUG2Z](https://github.com/sponsors/LGUG2Z) if komorebi is useful to you.
+> This fork is not affiliated with or endorsed by komorebi. It is shared as source only under the
+> [Komorebi License](LICENSE.md) (no binaries are distributed); build it yourself with
+> `cargo build --release -p komorebi-bar`. Changes live on the `komotype` branch.
+
 # komorebi
 
 Tiling Window Management for Windows.

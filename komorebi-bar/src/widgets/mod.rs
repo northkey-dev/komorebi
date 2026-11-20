@@ -16,6 +16,7 @@ pub mod date;
 pub mod keyboard;
 pub mod komorebi;
 mod komorebi_layout;
+pub mod komotype;
 pub mod media;
 pub mod memory;
 pub mod network;

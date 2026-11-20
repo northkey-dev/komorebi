@@ -11,6 +11,8 @@ use crate::widgets::keyboard::Keyboard;
 use crate::widgets::keyboard::KeyboardConfig;
 use crate::widgets::komorebi::Komorebi;
 use crate::widgets::komorebi::KomorebiConfig;
+use crate::widgets::komotype::Komotype;
+use crate::widgets::komotype::KomotypeConfig;
 use crate::widgets::media::Media;
 use crate::widgets::media::MediaConfig;
 use crate::widgets::memory::Memory;
@@ -58,6 +60,9 @@ pub enum WidgetConfig {
     /// Komorebi widget configuration
     #[cfg_attr(feature = "schemars", schemars(title = "Komorebi"))]
     Komorebi(KomorebiConfig),
+    /// komotype widget configuration (typing stats, https://github.com/northkey-dev/komotype)
+    #[cfg_attr(feature = "schemars", schemars(title = "Komotype"))]
+    Komotype(KomotypeConfig),
     /// Media widget configuration
     #[cfg_attr(feature = "schemars", schemars(title = "Media"))]
     Media(MediaConfig),
@@ -91,6 +96,7 @@ impl WidgetConfig {
             WidgetConfig::Date(config) => Box::new(Date::from(config.clone())),
             WidgetConfig::Keyboard(config) => Box::new(Keyboard::from(*config)),
             WidgetConfig::Komorebi(config) => Box::new(Komorebi::from(config)),
+            WidgetConfig::Komotype(config) => Box::new(Komotype::from(config)),
             WidgetConfig::Media(config) => Box::new(Media::from(*config)),
             WidgetConfig::Memory(config) => Box::new(Memory::from(*config)),
             WidgetConfig::Network(config) => Box::new(Network::from(*config)),
@@ -118,6 +124,7 @@ impl WidgetConfig {
                         .as_ref()
                         .is_some_and(|w| w.enable)
             }
+            WidgetConfig::Komotype(config) => config.enable,
             WidgetConfig::Media(config) => config.enable,
             WidgetConfig::Memory(config) => config.enable,
             WidgetConfig::Network(config) => config.enable,

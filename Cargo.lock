@@ -3236,6 +3236,7 @@ dependencies = [
  "image 0.25.10",
  "komorebi-client",
  "komorebi-themes",
+ "komotype-protocol",
  "lazy_static",
  "netdev",
  "num",
@@ -3355,6 +3356,14 @@ dependencies = [
 [[package]]
 name = "komorebic-no-console"
 version = "0.1.41"
+
+[[package]]
+name = "komotype-protocol"
+version = "0.1.0"
+source = "git+https://github.com/northkey-dev/komotype?rev=d6e4ee48dccf65f7181f06ce82e8b35e37267dca#d6e4ee48dccf65f7181f06ce82e8b35e37267dca"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "konst"
